@@ -33,6 +33,7 @@
     v2.2: небольшие багфиксы и оптимизация
     v2.3: добавлена возможность отправки широковещательного сообщения (всем), отправлять на адрес 255
     v2.4: исправлены ошибки, добавлена bool statusChanged() для GBUS
+    v2.5: добавил пример с GyverTransfer, добавил смену адреса
 */
 
 /*
@@ -42,8 +43,8 @@
     Библиотека softUART.h - это однопроводной UART, работающий на приём и отправку, причём не блокирующий выполнение кода
     Библиотека GBUSmini.h - это набор лёгких БЛОКИРУЮЩИХ функций для общения по одному проводу. Предусмотрено для мелких МК	
 */
-#ifndef GyverBus_h
-#define GyverBus_h
+#ifndef _GyverBus_h
+#define _GyverBus_h
 #include <Arduino.h>
 
 // ============== НАСТРОЙКИ ============== 
@@ -72,31 +73,31 @@ enum GBUSstatus {
 // =========== GBUS =========== 
 // проверить статус принятых данных (буфер, его размер, кол-во принятых байтов, наш адрес)
 // вернёт статус GBUSstatus
-GBUSstatus checkGBUS(uint8_t* buffer, byte bufSize, byte amount, byte addr);
+GBUSstatus checkGBUS(uint8_t* buffer, uint8_t bufSize, uint8_t amount, uint8_t addr);
 
 
 // ====== УПАКОВЩИК GBUS ====== 
 // запаковать данные для отправки (буфер, его размер, дата, адрес получателя, адрес отправителя)
 // вернёт количество упакованных байт
 // запакует согласно протоколу [суммарное количество байт, адрес получателя, адрес отправителя, ...байты даты..., CRC]
-template <typename T> byte packGBUSdata(uint8_t* buffer, byte bufSize, T &data, byte to, byte from);
+template <typename T> uint8_t packGBUSdata(uint8_t* buffer, uint8_t bufSize, T &data, uint8_t to, uint8_t from);
 
 // распаковать данные, минуя служебные байты (буфер, его размер, дата)
 // при успехе вернёт true. Вернёт false, если буфер слишком мал для даты
-template <typename T> bool unpackGBUSdata(uint8_t* buffer, byte bufSize, T &data);
+template <typename T> bool unpackGBUSdata(uint8_t* buffer, uint8_t bufSize, T &data);
 
 // запаковать команду в буфер (буфер, команда, кому, от кого)
 // команды: запрос (0), ответ (1)
 // запакует согласно протоколу [команда, адрес получателя, адрес отправителя, CRC]
-byte packGBUScmd(uint8_t* buffer, byte cmd, byte to, byte from);
+uint8_t packGBUScmd(uint8_t* buffer, uint8_t cmd, uint8_t to, uint8_t from);
 
 
 // ====== УПАКОВЩИК БАЙТОВ ====== 
 // пакуем любой тип данных в байтовый буфер (буфер, дата)
-template <typename T> void packDataBytes(byte *buffer, T &data);
+template <typename T> void packDataBytes(uint8_t *buffer, T &data);
 
 // распаковываем из байтового буфера обратно (буфер, дата)
-template <typename T> void unpackDataBytes(byte *buffer, T &data);
+template <typename T> void unpackDataBytes(uint8_t *buffer, T &data);
 
 
 // ============= CRC =============
@@ -104,8 +105,7 @@ template <typename T> void unpackDataBytes(byte *buffer, T &data);
 void GBUS_crc_update(uint8_t &crc, uint8_t data);
 
 // расчёт crc для буфера (буфер, количество байт для проверки)
-byte GBUS_crc_bytes(byte *data, byte size);
-
+uint8_t GBUS_crc_bytes(uint8_t *data, uint8_t size);
 
 // ========================================= РЕАЛИЗАЦИЯ =========================================
 // crc дефайн
@@ -128,19 +128,8 @@ byte GBUS_crc_bytes(byte *data, byte size);
 #define min(a,b) ((a)<(b)?(a):(b))
 #endif
 
-GBUSstatus checkGBUS(uint8_t* buffer, byte bufSize, byte amount, byte addr) {
-    if (buffer[0] > bufSize) return RX_OVERFLOW;									// буфер переполнен
-    if (amount > GBUS_OFFSET && amount > buffer[0]) return RX_OVERFLOW;				// пакет слишком большой
-    if (buffer[1] != addr && buffer[1] != 255) return RX_ADDRESS_ERROR;				// не наш адрес
-    if (amount < GBUS_OFFSET || (amount > GBUS_OFFSET && amount < buffer[0])) return RX_ABORT;		// передача прервана	
-    if (GBUS_CRC) if (GBUS_crc_bytes(buffer, amount) != 0) return RX_CRC_ERROR;		// данные повреждены			
-    if (buffer[0] == 0) return RX_REQUEST;											// реквест				
-    if (buffer[0] == 1) return RX_ACK;												// подтверждение
-    return RX_DATA;																	// данные приняты успешно
-}
-
 template <typename T>
-byte packGBUSdata(uint8_t* buffer, byte bufSize, T &data, byte to, byte from) {
+uint8_t packGBUSdata(uint8_t* buffer, uint8_t bufSize, T &data, uint8_t to, uint8_t from) {
     buffer[0] = sizeof(T) + GBUS_OFFSET;  	// размер пакета с учётом служебных
     if (buffer[0] > bufSize) return 0;		// если переполним буфер
     buffer[1] = to;       					// адрес приёмника
@@ -152,69 +141,27 @@ byte packGBUSdata(uint8_t* buffer, byte bufSize, T &data, byte to, byte from) {
 }
 
 template <typename T> 
-bool unpackGBUSdata(uint8_t* buffer, byte bufSize, T &data) {
+bool unpackGBUSdata(uint8_t* buffer, uint8_t bufSize, T &data) {
     if (sizeof(T) + GBUS_OFFSET > bufSize) return false;	// если данные больше буфера (+ служебная инфа протокола)
     uint8_t *ptr = (uint8_t*) &data;	
     for (uint16_t i = 0; i < sizeof(T); i++) *ptr++ = buffer[i + 3];	// пишем
     return true;
 }
 
-byte packGBUScmd(uint8_t* buffer, byte cmd, byte to, byte from) {
-    buffer[0] = cmd;	// команда
-    buffer[1] = to;		// адрес приёмника
-    buffer[2] = from;	// адрес передатчика	
-    if (GBUS_CRC) buffer[3] = GBUS_crc_bytes(buffer, 3);
-    return GBUS_OFFSET;
-}
-
 template <typename T>
-void packDataBytes(byte *buffer, T &data) {
-    const uint8_t *ptr = (const uint8_t*) &data;
+void packDataBytes(uint8_t *buffer, T &data) {
+    uint8_t *ptr = (uint8_t*) &data;
     for (uint16_t i = 0; i < sizeof(T); i++) {
         buffer[i] = *ptr++;
     }
 }
 
 template <typename T>
-void unpackDataBytes(byte *buffer, T &data) {
+void unpackDataBytes(uint8_t *buffer, T &data) {
     uint8_t *ptr = (uint8_t*) &data;
     for (uint16_t i = 0; i < sizeof(T); i++) {
         *ptr++ = buffer[i];
     }
 }
 
-void GBUS_crc_update(uint8_t &crc, uint8_t data) {
-#if defined (__AVR__)
-    // резкий алгоритм для AVR
-    uint8_t counter;
-    uint8_t buffer;
-    asm volatile (
-    "EOR %[crc_out], %[data_in] \n\t"
-    "LDI %[counter], 8          \n\t"
-    "LDI %[buffer], 0x8C        \n\t"
-    "_loop_start_%=:            \n\t"
-    "LSR %[crc_out]             \n\t"
-    "BRCC _loop_end_%=          \n\t"
-    "EOR %[crc_out], %[buffer]  \n\t"
-    "_loop_end_%=:              \n\t"
-    "DEC %[counter]             \n\t"
-    "BRNE _loop_start_%="
-    : [crc_out]"=r" (crc), [counter]"=d" (counter), [buffer]"=d" (buffer)
-    : [crc_in]"0" (crc), [data_in]"r" (data)
-    );
-#else
-    // обычный для всех остальных
-    uint8_t i = 8;
-    while (i--) {
-        crc = ((crc ^ data) & 1) ? (crc >> 1) ^ 0x8C : (crc >> 1);
-        data >>= 1;
-    }
-#endif
-}
-
-byte GBUS_crc_bytes(byte *buffer, byte size) {
-    byte crc = 0;
-    for (byte i = 0; i < size; i++) GBUS_crc_update(crc, buffer[i]);
-    return crc;
-}
 #endif

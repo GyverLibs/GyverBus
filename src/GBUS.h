@@ -1,12 +1,11 @@
-#ifndef GBUS_h
-#define GBUS_h
+#ifndef _GBUS_h
+#define _GBUS_h
+#include "GyverBus.h"
 // Это оболочка протокола GBUS на любой интерфейс связи Stream (Serial, программный Serial)
 // Обеспечивает асинхронный приём данных по Serial (в отличие от readBytes())
 // Полностью совместима на приём-передачу с остальными способами общения по GBUS
 // Можно использовать родной аппаратный UART с библиотеками Serial (+Serial1 Serial2...) или любой другой встроенной в ядро
 // Можно работать с аппаратным Serial и SoftwareSerial на любой платформе в пределах "экосистемы" Ардуино
-// В отличие от основной GBUS тут более высокая возможная скорость и надёжная передача, но для двухсторонней связи нужны два провода
-// (только отправлять или только принимать можно и по одному)
 
 /*
     Коды статусов и ошибок (tick() и getStatus()):
@@ -73,6 +72,7 @@
     gotRaw() - вернёт true, были приняты какие-то данные (приём завершён успешно). Сам сбрасывается в false.
     rawSize() - вернёт количество принятых байт (последний успешный приём). Иначе вернёт 0
     
+    setAddress(addr) - сменить адрес
     buffer - можно обращаться как к массиву. Встроенный буфер библиотеки
     
     Протокол: 
@@ -88,14 +88,14 @@
 #define GBUS_BUSY_TIMEOUT 50000	
 
 // =======================================================================
-#include "GyverBus.h"
 
 class GBUS {
 public:
-    GBUS(Stream* serial, byte addr, byte bufSize) : _bufSize(bufSize + GBUS_OFFSET), _addr(addr) {
-        buffer = (byte *)malloc(_bufSize);
+    GBUS(Stream* serial, uint8_t addr, uint8_t bufSize) : _bufSize(bufSize + GBUS_OFFSET) {
+        buffer = (uint8_t *)malloc(_bufSize);
         memset(buffer, 0, _bufSize);
         port = serial;
+        _addr = addr;
     }
 
     ~GBUS() {
@@ -105,6 +105,11 @@ public:
     // ==== ШИНА ====
     bool isBusy() {
         return !(micros() - _tmr > GBUS_BUSY_TIMEOUT);
+    }
+    
+    // сменить адрес
+    void setAddress(uint8_t addr) {
+        _addr = addr;
     }
 
     // в данной реализации это только функция ПАРСИНГА данных
@@ -139,14 +144,14 @@ public:
         }
         return false;
     }
-    byte getTXaddress() {return _txAddress;}
+    uint8_t getTXaddress() {return _txAddress;}
 
     // асинхронное чтение потока байтов. Возвращает:
     // -2: приём не идёт
     // -1: буфер переполнен
     // 0: приём идёт
     // кол-во байт: передача завершена
-    int readBytesAsync(byte* buffer, byte size) {
+    int readBytesAsync(uint8_t* buffer, uint8_t size) {
         while (port->available()) {				// пока есть данные в буфере сериал
             if (!_parseFlag) {					// начало приёма			
                 _parseFlag = true;				// ключ на старт
@@ -173,7 +178,7 @@ public:
 
     // ===== REQUEST =====
     // отправить
-    void sendRequest(byte to) {
+    void sendRequest(uint8_t to) {
         _txSize = packGBUScmd(buffer, 0, to, _addr);
         sendRaw(buffer, _txSize);
         if (_ackStage == ACK_IDLE) {
@@ -191,7 +196,7 @@ public:
     }
 
     // ждать ответа асинхронно
-    byte waitAck(byte to, byte tries, int timeout) {
+    uint8_t waitAck(uint8_t to, uint8_t tries, int timeout) {
         switch (_ackStage) {
         case ACK_IDLE:
             break;
@@ -220,11 +225,11 @@ public:
     }
 
     // ждать ответа (блокирующая функция)
-    byte sendRequestAck(byte to, byte tries, int timeout) {
+    uint8_t sendRequestAck(uint8_t to, uint8_t tries, int timeout) {
         sendRequest(to);
         while (tick() == GBUS_IDLE);			// ждём таймаут
         while (tick() != TX_COMPLETE);			// ждём отправку
-        byte thisTry = 0;
+        uint8_t thisTry = 0;
         uint32_t tmr = millis();
         while (1) {
             tick();								// принимаем или отправляем
@@ -243,7 +248,7 @@ public:
 
     // ===== ACK =====
     // отправить
-    void sendAck(byte to) {
+    void sendAck(uint8_t to) {
         _txSize = packGBUScmd(buffer, 1, to, _addr);
         sendRaw(buffer, _txSize);
     }
@@ -256,8 +261,8 @@ public:
     }
 
     // ===== RAW =====
-    void sendRaw(byte* data, byte size) {
-        for (byte i = 0; i < size; i++) port->write(data[i]);
+    void sendRaw(uint8_t* data, uint8_t size) {
+        for (uint8_t i = 0; i < size; i++) port->write(data[i]);
         _status = TX_COMPLETE;
     }
 
@@ -267,7 +272,7 @@ public:
         return temp;
     }
 
-    byte rawSize() {return _rawSize;}
+    uint8_t rawSize() {return _rawSize;}
 
     // ===== DATA =====
     // принять
@@ -279,7 +284,7 @@ public:
 
     // отправить
     template <typename T>
-    bool sendData(byte to, T &data) {
+    bool sendData(uint8_t to, T &data) {
         _txSize = packGBUSdata(buffer, _bufSize, data, to, _addr);
         if (_txSize == 0) {
             _status = TX_OVERFLOW;
@@ -296,25 +301,25 @@ public:
     }
 
     // ===== БУФЕР =====
-    byte *buffer;
+    uint8_t *buffer;
 
 private:
     const int _bufSize;
     uint32_t _tmr;
     uint32_t _ackTimer;
-    long _timeout = GBUS_BUSY_TIMEOUT;
-    byte _txAddress;
-    byte _txSize = 0;
-    byte _byteCount = 0;
-    byte _addr;
-    byte _rawSize = 0;
+    uint32_t _timeout = GBUS_BUSY_TIMEOUT;
+    uint8_t _txAddress;
+    uint8_t _txSize = 0;
+    uint8_t _byteCount = 0;
+    uint8_t _addr;
+    uint8_t _rawSize = 0;
     bool _parseFlag = false;
     bool _dataFlag = false;
     bool _requestFlag = false;
     bool _ackFlag = false;
     bool _rawFlag = false;
-    byte _ackTries = 0;
-    byte _ackStage = 0;
+    uint8_t _ackTries = 0;
+    uint8_t _ackStage = 0;
     GBUSstatus _status = GBUS_IDLE, _prevStatus = GBUS_IDLE;
     Stream* port;
 };
