@@ -9,7 +9,7 @@ SoftwareSerial mySerial(10, 11); // RX, TX
 // например софтСериал на любой другой платформе
 
 #include "GBUS.h"
-GBUS bus(&mySerial, 3, 20);  // адрес 3, буфер 10 байт
+GBUS bus(&mySerial, 3, 20);  // адрес 3, буфер 20 байт
 
 void setup() {
   // родной сериал открываю для наблюдения за процессом
