@@ -1,3 +1,5 @@
+This is an automatic translation, may be incorrect in some places. See sources and examples!
+
 # GyverBus
 Library for communication via GBUS protocol
 - Very simple, reliable, noise and latency resistant, but slow UART-based communication interface
