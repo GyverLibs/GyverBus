@@ -13,7 +13,7 @@ uint8_t GBUS_send_request_ack(uint8_t pin, uint8_t to, uint8_t from, uint8_t tri
             if (thisTry >= tries) return ACK_ERROR;
             GBUS_send_request(pin, to, from);
         }
-    }		
+    }        
     return ACK_ERROR;
 }
 
@@ -33,25 +33,25 @@ bool GBUS_is_busy(uint8_t pin) {
 // ********************* ЧТЕНИЕ **************************
 // *******************************************************
 uint8_t GBUS_read_raw(uint8_t pin, uint8_t* buf, uint8_t size) {
-    if (!digitalRead(pin)) {    	// проверяем старт бит (low)
-        delayMicroseconds(GBUS_BIT_2);		// ждём половину времени
-        if (!digitalRead(pin)) { 	// если всё ещё старт бит (low)
-            int8_t bitCount = 0;	// счётчик битов
-            uint8_t byteCount = 0;		// счётчик байтов
-            while (1) {				
-                delayMicroseconds(GBUS_BIT-GBUS_OFFSET_READ);	// ждём бит
-                uint8_t bit = digitalRead(pin);					// читаем
-                if (bitCount < 8) {								// передача битов даты
-                    bitWrite(buf[byteCount], bitCount, bit);  	// пишем в буфер
-                } else if (bitCount == 8) {						// стоп бит (high)
-                    if (!bit) return 0;                   		// ошибка стоп бита. Завершаем
-                    byteCount++;								// счётчик собранных байтов					
-                } else if (bitCount == 9) {						// старт бит (low)					
-                    if (bit) return byteCount;                	// не дождались старт бита. Конец приёма, возврат количества
-                    if (byteCount >= size) return 0;        	// буфер переполнен. Завершаем
-                    bitCount = -1;          					// костыль
+    if (!digitalRead(pin)) {        // проверяем старт бит (low)
+        delayMicroseconds(GBUS_BIT_2);        // ждём половину времени
+        if (!digitalRead(pin)) {     // если всё ещё старт бит (low)
+            int8_t bitCount = 0;    // счётчик битов
+            uint8_t byteCount = 0;        // счётчик байтов
+            while (1) {                
+                delayMicroseconds(GBUS_BIT-GBUS_OFFSET_READ);    // ждём бит
+                uint8_t bit = digitalRead(pin);                    // читаем
+                if (bitCount < 8) {                                // передача битов даты
+                    bitWrite(buf[byteCount], bitCount, bit);      // пишем в буфер
+                } else if (bitCount == 8) {                        // стоп бит (high)
+                    if (!bit) return 0;                           // ошибка стоп бита. Завершаем
+                    byteCount++;                                // счётчик собранных байтов                    
+                } else if (bitCount == 9) {                        // старт бит (low)                    
+                    if (bit) return byteCount;                    // не дождались старт бита. Конец приёма, возврат количества
+                    if (byteCount >= size) return 0;            // буфер переполнен. Завершаем
+                    bitCount = -1;                              // костыль
                 }
-                bitCount++;										// следующий бит
+                bitCount++;                                        // следующий бит
             }
         }
     }
@@ -61,22 +61,22 @@ uint8_t GBUS_read_raw(uint8_t pin, uint8_t* buf, uint8_t size) {
 
 // *******************************************************
 uint8_t GBUS_read(uint8_t pin, uint8_t addr, uint8_t* buf, uint8_t size) {
-    uint8_t buf2[size + GBUS_OFFSET];									// буфер на приём
-    uint8_t bytes = GBUS_read_raw(pin, buf2, (size + GBUS_OFFSET));	// принимаем, получаем количество байт посылки
-    if (buf2[0] == bytes && (buf2[1] == addr || buf2[1] == 255)) {	// если совпало количество байт и адрес
+    uint8_t buf2[size + GBUS_OFFSET];                                    // буфер на приём
+    uint8_t bytes = GBUS_read_raw(pin, buf2, (size + GBUS_OFFSET));    // принимаем, получаем количество байт посылки
+    if (buf2[0] == bytes && (buf2[1] == addr || buf2[1] == 255)) {    // если совпало количество байт и адрес
 #if (GBUS_CRC == 1)
         if (GBUS_crc_bytes(buf2, bytes) != 0) return 0;
 #endif
-        for (uint8_t i = 0; i < bytes - GBUS_OFFSET; i++) buf[i] = buf2[i + 3];	// переписываем в буфер в скетче
-        return buf2[2];												// возвращаем адрес
+        for (uint8_t i = 0; i < bytes - GBUS_OFFSET; i++) buf[i] = buf2[i + 3];    // переписываем в буфер в скетче
+        return buf2[2];                                                // возвращаем адрес
     }
-    return 0;														// иначе возвращаем ошибку
+    return 0;                                                        // иначе возвращаем ошибку
 }
 
 // *******************************************************
 // структура буфера: [0, адрес получателя, адрес отправителя, CRC]
 uint8_t GBUS_read_request(uint8_t pin, uint8_t addr) {
-    uint8_t buf[GBUS_OFFSET];	
+    uint8_t buf[GBUS_OFFSET];    
     if (GBUS_read_raw(pin, buf, GBUS_OFFSET) == GBUS_OFFSET 
             && (buf[1] == addr || buf[1] == 255)
 #if (GBUS_CRC == 1)
@@ -89,7 +89,7 @@ uint8_t GBUS_read_request(uint8_t pin, uint8_t addr) {
 // *******************************************************
 // структура буфера: [1, адрес получателя, адрес отправителя, CRC]
 uint8_t GBUS_read_ack(uint8_t pin, uint8_t addr) {
-    uint8_t buf[GBUS_OFFSET];	
+    uint8_t buf[GBUS_OFFSET];    
     if (GBUS_read_raw(pin, buf, GBUS_OFFSET) == GBUS_OFFSET 
             && (buf[1] == addr || buf[1] == 255)
 #if (GBUS_CRC == 1)

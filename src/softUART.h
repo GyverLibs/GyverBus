@@ -6,7 +6,7 @@
 // Наследует класс Print, то есть можно отправлять всё что угодно, как через обычный Serial
 // Улучшенная производительность для AVR Arduino
 
-#define SOFTUART_TX_WAIT 50			// Таймаут ожидания наполнения буфера через write, мкс 
+#define SOFTUART_TX_WAIT 50            // Таймаут ожидания наполнения буфера через write, мкс 
 
 /*
     Интерфейс: UART. start бит 0, stop бит 1. Кодирование даты: HIGH - 0x1, LOW - 0x0
@@ -26,7 +26,7 @@
     - скорость: скорость в бодах
 */
 // =============================================================================================
-#define SOFTUART_BUF_SIZE 64 		// Стандартный размер буфера на отправку, байт
+#define SOFTUART_BUF_SIZE 64         // Стандартный размер буфера на отправку, байт
 #include <Stream.h>
 
 // КОНСТАНТЫ
@@ -45,14 +45,14 @@ public:
         _pin_reg = portInputRegister(digitalPinToPort(_PIN));
         _ddr_reg = portModeRegister(digitalPinToPort(_PIN));
         _bit_mask = digitalPinToBitMask(_PIN);
-        *_ddr_reg &= ~_bit_mask;	// INPUT
-        *_port_reg |= _bit_mask;	// HIGH
+        *_ddr_reg &= ~_bit_mask;    // INPUT
+        *_port_reg |= _bit_mask;    // HIGH
 #else
         pinMode(_PIN, INPUT_PULLUP);
 #endif
         _bitTime = 1000000UL / baud;
         _bitTime2 = (uint32_t)_bitTime >> 1;
-        _timeout = _bitTime * 10 * 10;	// таймаут как время передачи 10 байт
+        _timeout = _bitTime * 10 * 10;    // таймаут как время передачи 10 байт
         if (_ROLE == GBUS_TX || _ROLE == GBUS_FULL) buffer = (byte *)malloc(_bufSize);
     }
     
@@ -67,15 +67,15 @@ public:
         BUS_READING,
     };
     
-    bool isBusy() {		
+    bool isBusy() {        
         return !(micros() - _tmr > _timeout);
     }
     
     int tick() {return available();}
     
-    virtual int available() {		
-        if (_role == GBUS_RX) {								// приёмник
-            if (_ROLE == GBUS_RX || _ROLE == GBUS_FULL) {	// компилятор вырежет при выбранной роли
+    virtual int available() {        
+        if (_role == GBUS_RX) {                                // приёмник
+            if (_ROLE == GBUS_RX || _ROLE == GBUS_FULL) {    // компилятор вырежет при выбранной роли
 #if defined(__AVR__)
                 byte bit = (*_pin_reg & _bit_mask);
 #else
@@ -83,7 +83,7 @@ public:
 #endif
                 switch(_busStage) {
                 case BUS_IDLE:
-                    if (!bit) {								// старт бит?
+                    if (!bit) {                                // старт бит?
                         _tmr = micros();
                         _busStage = BUS_START;
                     }
@@ -91,90 +91,90 @@ public:
                     
                 case BUS_START:
                     if (micros() - _tmr >= _bitTime2) {
-                        if (!bit) {							// да, старт бит
-                            _busStage = BUS_READING;		// начинаем приём
-                            _bitCount = 0;							
-                            _tmr += _bitTime2;				// ждём пол-фрейма							
-                        } else {							// ошибка
-                            _busStage = BUS_IDLE;							
-                        }				
+                        if (!bit) {                            // да, старт бит
+                            _busStage = BUS_READING;        // начинаем приём
+                            _bitCount = 0;                            
+                            _tmr += _bitTime2;                // ждём пол-фрейма                            
+                        } else {                            // ошибка
+                            _busStage = BUS_IDLE;                            
+                        }                
                     }
                     break;
                     
                 case BUS_READING:
-                    if (micros() - _tmr >= _bitTime) {				// таймер
-                        _tmr += _bitTime;							// следующий фрейм
-                        if (_bitCount < 8) {						// чтение битов даты (0-7)
-                            bitWrite(_thisByte, _bitCount, bit);  	// пишем в буфер
-                        } else if (_bitCount == 8) {				// проверяем стоп бит
+                    if (micros() - _tmr >= _bitTime) {                // таймер
+                        _tmr += _bitTime;                            // следующий фрейм
+                        if (_bitCount < 8) {                        // чтение битов даты (0-7)
+                            bitWrite(_thisByte, _bitCount, bit);      // пишем в буфер
+                        } else if (_bitCount == 8) {                // проверяем стоп бит
                             if (!bit) _busStage = BUS_IDLE;         // не дождались стоп бита, конец приема
-                            else _readFlag = 1;						// стоп бит. Байт принят
-                        } else if (_bitCount == 9) {				// проверяем старт бит
+                            else _readFlag = 1;                        // стоп бит. Байт принят
+                        } else if (_bitCount == 9) {                // проверяем старт бит
                             if (bit) _busStage = BUS_IDLE;          // не дождались нового старт бита, конец приема
-                            _bitCount = -1;          				// костыль
+                            _bitCount = -1;                          // костыль
                         }
-                        _bitCount++;								// следующий бит
+                        _bitCount++;                                // следующий бит
                     }
-                    break;					
-                }				
+                    break;                    
+                }                
             }
-            return _readFlag;										// вернули 1 если байт собран
-        } else {													// передатчик			
-            if (_ROLE == GBUS_TX || _ROLE == GBUS_FULL) {			// компилятор вырежет при выбранной роли
+            return _readFlag;                                        // вернули 1 если байт собран
+        } else {                                                    // передатчик            
+            if (_ROLE == GBUS_TX || _ROLE == GBUS_FULL) {            // компилятор вырежет при выбранной роли
                 switch(_busStage) {
                 case BUS_IDLE:
                     if (_writeStart && micros() - _tmr > SOFTUART_TX_WAIT) {
-                        _writeStart = false;						
+                        _writeStart = false;                        
                         _busStage = BUS_START;
                     }
                     break;
                 case BUS_START:
-                    if (!isBusy()) {								// ждём окончания активности на линии
+                    if (!isBusy()) {                                // ждём окончания активности на линии
                         _busStage = BUS_SENDING;
                         _bitCount = -1;
-                        _byteCount = 0;						
+                        _byteCount = 0;                        
                         _tmr = micros();
                     }
                     break;
                     
                 case BUS_SENDING:
-                    if (micros() - _tmr >= _bitTime) {						
-                        byte bit;								
-                        if (_bitCount < 0) bit = 0;					// старт бит
-                        else if (_bitCount < 8) {					// передача даты
+                    if (micros() - _tmr >= _bitTime) {                        
+                        byte bit;                                
+                        if (_bitCount < 0) bit = 0;                    // старт бит
+                        else if (_bitCount < 8) {                    // передача даты
                             bit = (buffer[_byteCount] >> _bitCount) & 1; // бит даты
                         } else {
-                            bit = 1;								// стоп бит
-                            _byteCount++;							// след. байт							
-                            _bitCount = -2;							// костыль
+                            bit = 1;                                // стоп бит
+                            _byteCount++;                            // след. байт                            
+                            _bitCount = -2;                            // костыль
                         }
                         // дрыг
 #if defined(__AVR__)
                         if (bit) {
-                            *_ddr_reg &= ~_bit_mask;	// INPUT
-                            *_port_reg |= _bit_mask;	// HIGH
+                            *_ddr_reg &= ~_bit_mask;    // INPUT
+                            *_port_reg |= _bit_mask;    // HIGH
                         } else {
-                            *_ddr_reg |= _bit_mask;		// OUTPUT
-                            *_port_reg &= ~_bit_mask;	// LOW
+                            *_ddr_reg |= _bit_mask;        // OUTPUT
+                            *_port_reg &= ~_bit_mask;    // LOW
                         }
 #else
                         pinMode(_PIN, !bit);
                         digitalWrite(_PIN, bit);
 #endif
                         _bitCount++;
-                        _tmr += _bitTime;							// таймер
-                        if (_byteCount == _txSize) {				// передача окончена
+                        _tmr += _bitTime;                            // таймер
+                        if (_byteCount == _txSize) {                // передача окончена
                             _busStage = BUS_IDLE;
                             if (_ROLE == GBUS_FULL) _role = GBUS_RX;// переключение на приёмник
-                            _tmr = micros();						// сброс таймера							
+                            _tmr = micros();                        // сброс таймера                            
                         }
                     }
                     break;
                 }
             }
-            return 0;		// в режиме передатчика возвращаем 0
+            return 0;        // в режиме передатчика возвращаем 0
         }
-    }	
+    }    
     
     virtual int read() {
         _readFlag = 0;
@@ -184,7 +184,7 @@ public:
     virtual size_t write(uint8_t byte) {
         // КВМ (Костыль Вселенских Масштабов)
         // наполняем буфер по таймеру
-        if (_ROLE == GBUS_TX || _ROLE == GBUS_FULL) {	// компилер вырежет, если ты приёмный			
+        if (_ROLE == GBUS_TX || _ROLE == GBUS_FULL) {    // компилер вырежет, если ты приёмный            
             if (!_writeStart) {
                 _writeStart = true;
                 _txSize = 0;
@@ -195,7 +195,7 @@ public:
         }
     }
     
-    virtual void flush() {}	
+    virtual void flush() {}    
     int peek(){}
     
 private:
@@ -206,7 +206,7 @@ private:
     byte _txSize = 0;
     byte _byteCount = 0;
     byte _thisByte;
-    byte _readFlag = 0;	
+    byte _readFlag = 0;    
     uint32_t _tmr;
     byte _role = GBUS_RX;
     BUS_stage _busStage = BUS_IDLE;

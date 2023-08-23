@@ -1,22 +1,22 @@
 #include "GyverBus.h"
 
 uint8_t packGBUScmd(uint8_t* buffer, uint8_t cmd, uint8_t to, uint8_t from) {
-    buffer[0] = cmd;	// команда
-    buffer[1] = to;		// адрес приёмника
-    buffer[2] = from;	// адрес передатчика	
+    buffer[0] = cmd;    // команда
+    buffer[1] = to;        // адрес приёмника
+    buffer[2] = from;    // адрес передатчика    
     if (GBUS_CRC) buffer[3] = GBUS_crc_bytes(buffer, 3);
     return GBUS_OFFSET;
 }
 
 GBUSstatus checkGBUS(uint8_t* buffer, uint8_t bufSize, uint8_t amount, uint8_t addr) {
-    if (buffer[0] > bufSize) return RX_OVERFLOW;									// буфер переполнен
-    if (amount > GBUS_OFFSET && amount > buffer[0]) return RX_OVERFLOW;				// пакет слишком большой
-    if (buffer[1] != addr && buffer[1] != 255) return RX_ADDRESS_ERROR;				// не наш адрес
-    if (amount < GBUS_OFFSET || (amount > GBUS_OFFSET && amount < buffer[0])) return RX_ABORT;		// передача прервана	
-    if (GBUS_CRC) if (GBUS_crc_bytes(buffer, amount) != 0) return RX_CRC_ERROR;		// данные повреждены			
-    if (buffer[0] == 0) return RX_REQUEST;											// реквест				
-    if (buffer[0] == 1) return RX_ACK;												// подтверждение
-    return RX_DATA;																	// данные приняты успешно
+    if (buffer[0] > bufSize) return RX_OVERFLOW;                                    // буфер переполнен
+    if (amount > GBUS_OFFSET && amount > buffer[0]) return RX_OVERFLOW;                // пакет слишком большой
+    if (buffer[1] != addr && buffer[1] != 255) return RX_ADDRESS_ERROR;                // не наш адрес
+    if (amount < GBUS_OFFSET || (amount > GBUS_OFFSET && amount < buffer[0])) return RX_ABORT;        // передача прервана    
+    if (GBUS_CRC) if (GBUS_crc_bytes(buffer, amount) != 0) return RX_CRC_ERROR;        // данные повреждены            
+    if (buffer[0] == 0) return RX_REQUEST;                                            // реквест                
+    if (buffer[0] == 1) return RX_ACK;                                                // подтверждение
+    return RX_DATA;                                                                    // данные приняты успешно
 }
 
 void GBUS_crc_update(uint8_t &crc, uint8_t data) {

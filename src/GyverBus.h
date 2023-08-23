@@ -41,29 +41,29 @@
     Библиотека GBUS.h позволяет общаться по протоколу GBUS через любой Stream-объект (Serial, SoftwareSerial, softUART и проч). Основное описание содержится в ней
     Библиотека GyverBus.h содержит базовые инструменты для упаковки и распаковки данных в байтовые пакеты с адресацией и CRC
     Библиотека softUART.h - это однопроводной UART, работающий на приём и отправку, причём не блокирующий выполнение кода
-    Библиотека GBUSmini.h - это набор лёгких БЛОКИРУЮЩИХ функций для общения по одному проводу. Предусмотрено для мелких МК	
+    Библиотека GBUSmini.h - это набор лёгких БЛОКИРУЮЩИХ функций для общения по одному проводу. Предусмотрено для мелких МК    
 */
 #ifndef _GyverBus_h
 #define _GyverBus_h
 #include <Arduino.h>
 
 // ============== НАСТРОЙКИ ============== 
-#define GBUS_CRC 1				// 1 - вкл CRC, 0 - выкл (экономит память, но того не стоит)
+#define GBUS_CRC 1                // 1 - вкл CRC, 0 - выкл (экономит память, но того не стоит)
 
 
 // СТАТУСЫ (НЕ ТРОГАТЬ)
 enum GBUSstatus {
-    GBUS_IDLE,	
+    GBUS_IDLE,    
     TRANSMITTING,
-    TX_OVERFLOW,	
-    TX_COMPLETE,	
-    RECEIVING,	
+    TX_OVERFLOW,    
+    TX_COMPLETE,    
+    RECEIVING,    
     RX_ERROR,
     RX_ABORT,
     RX_OVERFLOW,
-    RX_ADDRESS_ERROR,	
+    RX_ADDRESS_ERROR,    
     RX_CRC_ERROR,
-    RX_REQUEST,	
+    RX_REQUEST,    
     RX_DATA,
     RX_ACK,
 };
@@ -123,28 +123,23 @@ uint8_t GBUS_crc_bytes(uint8_t *data, uint8_t size);
 #define ACK_DATA 4
 #define GBUS_BROADCAST 255
 
-// привет разработчикам ядра esp8266. Ничего не потеряли?)
-#if defined(ESP8266)
-#define min(a,b) ((a)<(b)?(a):(b))
-#endif
-
 template <typename T>
 uint8_t packGBUSdata(uint8_t* buffer, uint8_t bufSize, T &data, uint8_t to, uint8_t from) {
-    buffer[0] = sizeof(T) + GBUS_OFFSET;  	// размер пакета с учётом служебных
-    if (buffer[0] > bufSize) return 0;		// если переполним буфер
-    buffer[1] = to;       					// адрес приёмника
-    buffer[2] = from;						// адрес передатчика	
-    const uint8_t *ptr = (const uint8_t*) &data;								// указатель
-    for (uint16_t i = 0; i < sizeof(T); i++) buffer[i + 3] = *ptr++;			// пакуем дату	
-    if (GBUS_CRC) buffer[sizeof(T) + 3] = GBUS_crc_bytes(buffer, sizeof(T) + 3);// crc	
+    buffer[0] = sizeof(T) + GBUS_OFFSET;      // размер пакета с учётом служебных
+    if (buffer[0] > bufSize) return 0;        // если переполним буфер
+    buffer[1] = to;                           // адрес приёмника
+    buffer[2] = from;                        // адрес передатчика    
+    const uint8_t *ptr = (const uint8_t*) &data;                                // указатель
+    for (uint16_t i = 0; i < sizeof(T); i++) buffer[i + 3] = *ptr++;            // пакуем дату    
+    if (GBUS_CRC) buffer[sizeof(T) + 3] = GBUS_crc_bytes(buffer, sizeof(T) + 3);// crc    
     return buffer[0];
 }
 
 template <typename T> 
 bool unpackGBUSdata(uint8_t* buffer, uint8_t bufSize, T &data) {
-    if (sizeof(T) + GBUS_OFFSET > bufSize) return false;	// если данные больше буфера (+ служебная инфа протокола)
-    uint8_t *ptr = (uint8_t*) &data;	
-    for (uint16_t i = 0; i < sizeof(T); i++) *ptr++ = buffer[i + 3];	// пишем
+    if (sizeof(T) + GBUS_OFFSET > bufSize) return false;    // если данные больше буфера (+ служебная инфа протокола)
+    uint8_t *ptr = (uint8_t*) &data;    
+    for (uint16_t i = 0; i < sizeof(T); i++) *ptr++ = buffer[i + 3];    // пишем
     return true;
 }
 
